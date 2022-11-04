@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const jwt = require('jsonwebtoken');
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
+const { response } = require('express');
 require('dotenv').config();
 const app = express();
 const port = process.env.PORT || 5000;
@@ -22,12 +23,12 @@ const client = new MongoClient(uri, {
 function verifyJWT(req, res, next){
     const authHeader = req.headers.authorization;
     if(!authHeader){
-        return res.status(401).send({message: 'Unauthorized Access!'});
-    }
+        return res.status(401).send({message: 'Unauthorized access!'})
+    };
     const token = authHeader.split(' ')[1];
     jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, function(err, decoded){
         if(err){
-            return res.status(403).send({message: 'Unauthorized access!'});
+            return res.status(403).send({message: 'Forbidden access!'})
         }
         req.decoded = decoded;
         next();
@@ -40,12 +41,13 @@ async function run(){
     try{
         const servicesCollection = client.db('geinusCar').collection('services');
         const ordersCollection = client.db('geinusCar').collection('orders');
-
+        //jwt Note Note Note Remember token expair in 30days
         app.post('/jwt', (req, res)=>{
             const user = req.body;
-            const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {expiresIn: '5s'});
-            res.send({token})
+            const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {expiresIn: '30d'});
+            res.send({token});
         })
+        
 
         //get services 
         app.get('/services', async(req, res)=>{
@@ -62,33 +64,30 @@ async function run(){
             res.send(services);
         });
         //order apis
-        app.get('/orders',verifyJWT,  async(req, res)=>{
-            // console.log(req.query.email);
-            // console.log(req.headers.authorization);
+        app.get("/orders", verifyJWT, async (req, res) => {
             const decoded = req.decoded;
-            // console.log('Inside order api', decoded);
             if(decoded.email !== req.query.email){
-                return res.status(403).send({message: 'Unauthorized Access!'});
+                res.status(403).send({message: 'Unauthorized access!'})
             }
-            let query = {};
-            if(req.query.email){
-                query = {
-                    email: req.query.email,
-                }
-            }
+          let query = {};
+          if (req.query.email) {
+            query = {
+              email: req.query.email,
+            };
+          }
 
-            const cursor = ordersCollection.find(query);
-            const orders = await cursor.toArray();
-            res.send(orders);
-        })
+          const cursor = ordersCollection.find(query);
+          const orders = await cursor.toArray();
+          res.send(orders);
+        });
 
-        app.post('/orders', async(req, res)=>{
+        app.post('/orders', verifyJWT, async(req, res)=>{
             const order = req.body;
             const result = await ordersCollection.insertOne(order);
             res.send(result)
         })
         //patch
-        app.patch('/orders/:id', async(req, res)=> {
+        app.patch('/orders/:id', verifyJWT, async(req, res)=> {
             const id = req.params.id;
             const status = req.body.status;
             const query = {_id: ObjectId(id)};
@@ -101,7 +100,7 @@ async function run(){
             res.send(result)
         })
         //delete
-        app.delete('/orders/:id', async(req, res)=>{
+        app.delete('/orders/:id', verifyJWT, async(req, res)=>{
             const id = req.params.id;
             const query = {_id: ObjectId(id)};
             const result = await ordersCollection.deleteOne(query);
