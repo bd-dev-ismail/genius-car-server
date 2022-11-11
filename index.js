@@ -51,7 +51,24 @@ async function run(){
 
         //get services 
         app.get('/services', async(req, res)=>{
-            const query = { price: { $gt: 30, $lt: 100 }};
+            // const query = {$and: [{price: {$gt: 20}}, {price: {$gt: 100}}]};
+            // const query = { price: { $nin: [20, 40, 150] }};
+            // const query = { price: { $in: [20, 40, 150] }};
+            // const query = { price: { $ne: 150 }};
+            // const query = { price: { $lte: 200 }};
+            // const query = { price: { $gte: 60 }};
+            // const query = { price: { $eq: 60 }};
+            // const query = { price: { $gt: 30, $lt: 100 }};
+            const search = req.query.search;
+            let query = {};
+            if(search.length){
+                query = {
+                  $text: {
+                    $search: search,
+                  },
+                };
+            }
+            
             const order = req.query.order === 'asc' ? 1 : -1;
             const cursor = servicesCollection.find(query).sort({price: order});
             const services = await cursor.toArray();
